@@ -1,7 +1,6 @@
-'use client';
+import { PrismaClient } from "@prisma/client";
 
-import TreeNode from "@/components/TreeNode";
-import React, { useState } from "react";
+const prisma = new PrismaClient();
 
 const initialTree = {
   id: 1,
@@ -54,11 +53,52 @@ const initialTree = {
   ],
 };
 
-export default function Home() {
-  const [treeData, setTreeData] = useState(initialTree);
-  return (
-    <div className="p-4">
-      <TreeNode node={treeData} onChange={setTreeData} />
-    </div>
-  );
+async function createPermissions(node , parentId = null) {
+  const permission = await prisma.permission.create({
+    data: {
+      name: node.label,
+      group: node.label.split(" ")[0] ?? "General",
+      parentId,
+    },
+  });
+
+  const children = node.children || [];
+  for (const child of children) {
+    await createPermissions(child, permission.id);
+  }
+
+  return permission;
 }
+
+async function main() {
+  await createPermissions(initialTree);
+  const allPermissions = await prisma.permission.findMany();
+  const adminGroup = await prisma.userGroup.upsert({
+    where: { name: "Admin Group" },
+    update: {},
+    create: {
+      name: "Admin Group",
+      description: "Has access to all permissions",
+      createdBy: "Seeder",
+      updatedBy: "Seeder",
+    },
+  });
+
+  await prisma.groupPermission.createMany({
+    data: allPermissions.map((perm) => ({
+      userGroupId: adminGroup.id,
+      permissionId: perm.id,
+    })),
+    skipDuplicates: true,
+  });
+
+}
+
+main()
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

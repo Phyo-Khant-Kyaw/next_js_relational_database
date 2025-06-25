@@ -1,0 +1,76 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgres"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            Int       @id @default(autoincrement())
+  userId        String    @unique
+  roleId        String
+  name          String
+  email         String    @unique
+  phone         String
+  password      String
+  pj_member_id  Int       @unique
+  user_group_id Int
+  department    String
+  createdBy     String
+  updatedBy     String
+  deletedBy     String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+
+  user_group     UserGroup     @relation(fields: [user_group_id], references: [id])
+  project_member ProjectMember @relation(fields: [pj_member_id], references: [pj_member_id])
+}
+
+model ProjectMember {
+  id           Int      @id @default(autoincrement())
+  pj_member_id Int      @unique
+  member_type  String
+  createdBy    String
+  updatedBy    String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User?
+}
+
+model UserGroup {
+  id          Int            @id @default(autoincrement())
+  name        String         @unique
+  description String?
+  createdBy   String
+  updatedBy   String
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  users       User[]
+  permissions GroupPermission[]
+}
+
+
+model Permission {
+  id       Int          @id @default(autoincrement())
+  name     String
+  group    String
+  parentId Int?
+  parent   Permission?  @relation("ParentChild", fields: [parentId], references: [id])
+  children Permission[] @relation("ParentChild")
+
+  userGroups GroupPermission[]
+}
+
+model GroupPermission {
+  userGroupId  Int
+  permissionId Int
+
+  userGroup    UserGroup  @relation(fields: [userGroupId], references: [id])
+  permission   Permission @relation(fields: [permissionId], references: [id])
+
+  @@id([userGroupId, permissionId])
+}
